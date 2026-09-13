@@ -1,0 +1,13 @@
+services:
+  rstudio:
+    image: ghcr.io/victorrrwang/flow-workshop-r:2026.09
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    ports:
+      - "127.0.0.1:8787:8787"
+    environment:
+      PASSWORD: ${PASSWORD:-workshop}
+    volumes:
+      - ./data:/home/rstudio/data:ro
+      - ./workshop:/home/rstudio/workshop
