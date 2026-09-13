@@ -1,0 +1,10 @@
+data/*
+!data/.gitkeep
+*.fcs
+*.tar.gz
+SHA256SUMS
+workshop/*.html
+workshop/*_files/
+.Rproj.user/
+.Rhistory
+.DS_Store
