@@ -21,9 +21,20 @@ library(flowWorkspace) # flowjo_* transforms, GatingSet (later sessions)
 library(ggcyto)        # ggplot2-based cytometry plots
 library(tidyverse)
 library(patchwork)     # combine plots side by side
+library(speedyflowplot) # fast density dot plots (PlotFlowFrame)
+library(scales)        # speedyflowplot's axis labels need scales attached
 
 # ggcyto facets by sample name by default; with a single file that strip is noise.
 no_strip <- theme(strip.background = element_blank(), strip.text = element_blank())
+
+# Dot plot with decade tick labels. Pass exact channel names (e.g. "B810-A"):
+# PlotFlowFrame also accepts marker names, but partial matches like "CD3" can hit CD38.
+flow_plot <- function(x, chs, title) {
+  suppressMessages(
+    PlotFlowFrame(x, channels = chs, title = title,
+                  shownumbers = TRUE, plot.margins = c(3.5, 3.5, 2, 1))
+  )
+}
 ```
 
 ## 2. Import
@@ -115,17 +126,13 @@ cat("Largest spillover:", from_ch, "->", to_ch, "=", round(max(off_diag), 3), "\
 ff_comp <- compensate(ff, spill)
 ```
 
-To compare before and after, temporarily apply the same logicle scale to both:
+Compare before and after with `flow_plot()` (defined in Setup), which applies a
+display logicle scale to fluorescence axes:
 
 ```{r comp-before-after, fig.width = 10, fig.height = 5}
-vis_trans <- estimateLogicle(ff_comp, channels = c(from_ch, to_ch))
-
-pair_plot <- function(x, title) {
-  ggcyto(transform(x, vis_trans), aes(x = !!sym(from_ch), y = !!sym(to_ch))) +
-    geom_hex(bins = 128) +
-    ggtitle(title) + no_strip
-}
-as.ggplot(pair_plot(ff, "Uncompensated")) + as.ggplot(pair_plot(ff_comp, "Compensated"))
+par(mfrow = c(1, 2))
+flow_plot(ff,      c(from_ch, to_ch), "Uncompensated")
+flow_plot(ff_comp, c(from_ch, to_ch), "Compensated")
 ```
 
 ## 5. Transformation
@@ -171,32 +178,25 @@ as.ggplot(hist_plot(ff_comp, "CD45 — linear")) +
 
 ## 6. Plots
 
-```{r plots, fig.width = 10, fig.height = 9}
-# Linear scatter channels have a few extreme events (clogs, coincidence) that
-# squash the plot, so trim FSC/SSC to the 99.9th percentile for display.
-ff_plot <- trim(ff_trans, c("FSC-A", "SSC-A"), probs = c(0, 0.999))
-cat("Events shown:", nrow(ff_plot), "of", nrow(ff_trans), "\n")
+`PlotFlowFrame()` estimates its own logicle scale per axis for display, so we give it
+the **compensated, untransformed** frame (`ff_comp`) and get real decade tick labels.
+`ff_trans` is what you would use for analysis (clustering, UMAP) in later sessions.
 
-dot <- function(x_ch, y_ch, title) {
-  as.ggplot(
-    ggcyto(ff_plot, aes(x = !!sym(x_ch), y = !!sym(y_ch))) +
-      geom_hex(bins = 128) +
-      ggtitle(title) + no_strip +
-      theme(legend.position = "none")
-  )
-}
-
+```{r plots, fig.width = 10, fig.height = 10}
 cd3  <- marker_channel(ff, "CD3_")
 cd19 <- marker_channel(ff, "CD19_")
 cd4  <- marker_channel(ff, "CD4_")
 cd8  <- marker_channel(ff, "CD8_")
 
-(dot("FSC-A", "SSC-A", "FSC-A vs SSC-A") | dot(cd45, "SSC-A", "CD45 vs SSC-A")) /
-  (dot(cd3, cd19, "CD3 vs CD19") | dot(cd4, cd8, "CD4 vs CD8"))
+par(mfrow = c(2, 2))
+flow_plot(ff_comp, c("FSC-A", "SSC-A"), "FSC-A vs SSC-A")
+flow_plot(ff_comp, c(cd45, "SSC-A"),    "CD45 vs SSC-A")
+flow_plot(ff_comp, c(cd3, cd19),        "CD3 vs CD19")
+flow_plot(ff_comp, c(cd4, cd8),         "CD4 vs CD8")
 ```
 
-`ggcyto` labels axes with `channel marker` automatically. Note these plots show
-**all events** — gating to lymphocytes/singlets comes in a later session.
+Note these plots show **all events** — gating to lymphocytes/singlets comes in a
+later session.
 
 ## 7. Session info
 

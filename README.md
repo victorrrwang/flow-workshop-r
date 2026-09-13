@@ -8,6 +8,7 @@ the R/Bioconductor packages for flow cytometry data manipulation and visualizati
 | Core flow | flowCore, flowWorkspace, openCyto, ggcyto, CytoML |
 | Quality control | flowAI, PeacoQC |
 | High-dimensional | CATALYST, FlowSOM, uwot |
+| Plotting | [speedyflowplot](https://github.com/victorrrwang/speedyflowplot) (fast density dot plots), ggcyto |
 | General | tidyverse, patchwork, rmarkdown, knitr |
 
 R 4.6.1 · Bioconductor 3.23 · works on Apple Silicon and Intel/AMD machines.
@@ -122,7 +123,8 @@ Expect `SMOKE TEST PASSED`.
 
 ### Add a package
 
-1. Append it to `pkgs` in `docker/install.R`.
+1. Append it to `pkgs` in `docker/install.R` (CRAN/Bioconductor), or to `github_pkgs`
+   as `"owner/repo[/subdir]@<commit SHA>"`. To update speedyflowplot, change its SHA.
 2. Bump the tag (e.g. `2026.09` → `2026.10`) in `docker-compose.yml`, this README and
    `scripts/export-images.sh`.
 3. Rebuild, run the smoke test, publish.

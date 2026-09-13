@@ -9,11 +9,11 @@ fail <- function(...) {
 
 # 1. Every package from the install list loads
 source("/opt/workshop/install.R")  # defines `pkgs` without installing
-for (p in pkgs) {
+for (p in c(pkgs, names(github_pkgs))) {
   ok <- suppressPackageStartupMessages(require(p, character.only = TRUE, quietly = TRUE))
   if (!ok) fail("package '", p, "' does not load")
 }
-message("OK: ", length(pkgs), " packages load")
+message("OK: ", length(pkgs) + length(github_pkgs), " packages load")
 
 # 2. FCS pipeline: read -> compensate -> transform -> plot
 data_dir <- "/home/rstudio/data"
