@@ -15,6 +15,22 @@ for (p in c(pkgs, names(github_pkgs))) {
 }
 message("OK: ", length(pkgs) + length(github_pkgs), " packages load")
 
+# 1b. Packages we rely on but never name in install.R, because they arrive as
+# dependencies of CATALYST. That is a reasonable belief and a bad thing to discover is
+# wrong at 10:30 on the morning, so check it explicitly.
+implicit <- c("SingleCellExperiment", "ConsensusClusterPlus", "scater", "igraph")
+for (p in implicit) {
+  ok <- suppressPackageStartupMessages(require(p, character.only = TRUE, quietly = TRUE))
+  if (!ok) fail("implicit dependency '", p, "' does not load")
+}
+message("OK: ", length(implicit), " implicit dependencies load")
+
+# 1c. igraph::compare() provides the adjusted Rand index used to compare clusterings in
+# module 04, so no extra package is needed for it. Prove that here.
+ari <- igraph::compare(c(1, 1, 2, 2), c(1, 1, 2, 2), method = "adjusted.rand")
+if (!isTRUE(all.equal(ari, 1))) fail("igraph::compare adjusted.rand did not return 1")
+message("OK: igraph::compare(method = \"adjusted.rand\") works")
+
 # 2. FCS pipeline: read -> compensate -> transform -> plot
 data_dir <- "/home/rstudio/data"
 fcs <- list.files(data_dir, pattern = "\\.fcs$", ignore.case = TRUE, full.names = TRUE)

@@ -6,6 +6,15 @@ pkgs <- c(
   "flowAI", "PeacoQC",
   # High-dimensional analysis
   "CATALYST", "FlowSOM", "uwot",
+  # Clustering methods compared in module 04.
+  #   flowPeaks: density-mode clustering. Source dates from 2012 and carries compiled C,
+  #              so it is the most likely package here to fail an arm64 build -- which is
+  #              exactly why CI builds both architectures before anyone pulls the image.
+  #   bluster:   makeSNNGraph, for the Leiden arm. Leiden itself is igraph::cluster_leiden,
+  #              and igraph already arrives with FlowSOM. The CRAN `leiden` package is
+  #              deliberately NOT used: it calls Python through reticulate, and a Python
+  #              runtime is an explicit non-goal for this image.
+  "flowPeaks", "bluster",
   # General
   "tidyverse", "patchwork", "rmarkdown", "knitr", "remotes"
 )
