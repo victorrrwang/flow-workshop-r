@@ -38,15 +38,22 @@ if (length(fcs) == 0) {
   if (!isTRUE(res)) fail("FCS pipeline: ", res)
   message("OK: read/compensate/transform/plot ", basename(fcs[1]))
 
-  # 3. Starter notebook knits
-  rmd <- "/home/rstudio/workshop/01-import-comp-transform-plot.Rmd"
-  if (file.exists(rmd)) {
-    out <- tryCatch(
-      rmarkdown::render(rmd, output_dir = tempdir(), quiet = TRUE,
-                        intermediates_dir = tempdir(), envir = new.env()),
-      error = function(e) fail("notebook: ", conditionMessage(e))
-    )
-    message("OK: notebook knit -> ", out)
+  # 3. Every workshop notebook knits.
+  # Deliberately not a hard-coded filename: as modules 02-05 are added they are gated by
+  # this test automatically, and a notebook that cannot knit with the shipped data is a
+  # failure worth catching before anyone pulls the image.
+  rmds <- list.files("/home/rstudio/workshop", pattern = "\\.Rmd$", full.names = TRUE)
+  if (length(rmds) == 0) {
+    message("SKIP: no .Rmd found in /home/rstudio/workshop")
+  } else {
+    for (rmd in sort(rmds)) {
+      out <- tryCatch(
+        rmarkdown::render(rmd, output_dir = tempdir(), quiet = TRUE,
+                          intermediates_dir = tempdir(), envir = new.env()),
+        error = function(e) fail("notebook ", basename(rmd), ": ", conditionMessage(e))
+      )
+      message("OK: knit ", basename(rmd))
+    }
   }
 }
 

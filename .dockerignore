@@ -1,0 +1,17 @@
+# Everything here is excluded from the build context -- the archive Docker uploads to
+# the builder before it starts. The Dockerfile only COPYs three files, so sending the
+# FCS data, the git history and the built bundle just makes every build slower.
+.git
+.gitattributes
+.gitignore
+
+data
+dist
+workshop
+docs
+
+*.tar.gz
+*.zip
+*.pdf
+SHA256SUMS
+.DS_Store

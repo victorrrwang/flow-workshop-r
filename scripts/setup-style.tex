@@ -1,0 +1,62 @@
+% Typography for SETUP.pdf. Restrained by intent: a printed handout, not a web page.
+\usepackage{microtype}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{xcolor}
+\usepackage{titling}
+\usepackage{needspace}
+
+\definecolor{ink}{HTML}{16161A}
+\definecolor{slate}{HTML}{55606E}
+\definecolor{hairline}{HTML}{C5C9CE}
+
+% --- title ---------------------------------------------------------------
+% Left-aligned and pulled up. The default centred block wastes a third of page one
+% on a two-page handout.
+\setlength{\droptitle}{-2.2cm}
+\pretitle{\begin{flushleft}\sffamily\bfseries\LARGE}
+\posttitle{\par\end{flushleft}\vspace{-0.9em}}
+\preauthor{}\postauthor{}
+\predate{}\postdate{}
+
+% --- page furniture -------------------------------------------------------
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+\fancyfoot[C]{\sffamily\footnotesize\color{slate}\thepage}
+
+% --- headings -------------------------------------------------------------
+% Platform names: quiet, letterspaced, with a hairline beneath.
+\titleformat{\section}
+  {\normalfont\sffamily\bfseries\Large\color{ink}}
+  {}{0pt}{\lsstyle}
+  [{\vspace{3pt}\color{hairline}\titlerule[0.6pt]}]
+\titlespacing*{\section}{0pt}{4pt}{14pt}
+
+% Steps: the number in grey, the text in black, tight to the text beneath.
+\titleformat{\subsection}
+  {\normalfont\sffamily\bfseries\normalsize\color{ink}}
+  {}{0pt}{}
+\titlespacing*{\subsection}{0pt}{13pt}{4pt}
+
+% never leave a step heading stranded at the foot of a page
+\pretolerance=2000
+
+% --- body -----------------------------------------------------------------
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.48em}
+\linespread{1.03}
+
+\setlist[itemize]{leftmargin=1.2em, itemsep=2pt, topsep=2pt}
+
+% Code: slightly smaller and grey-black, so commands read as objects rather
+% than as shouting.
+\let\oldtexttt\texttt
+\renewcommand{\texttt}[1]{{\color{ink}\small\oldtexttt{#1}}}
+
+% Tables: lighter rules than booktabs' default.
+\setlength{\aboverulesep}{0pt}
+\setlength{\belowrulesep}{0pt}
+\renewcommand{\arraystretch}{1.25}

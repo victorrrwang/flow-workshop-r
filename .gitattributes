@@ -1,0 +1,17 @@
+# Normalise line endings so a Windows checkout does not break anything.
+# Without this, git on Windows rewrites files to CRLF, which breaks shell scripts
+# the moment they run inside a Linux container.
+* text=auto
+
+# These must stay LF regardless of platform.
+*.sh    text eol=lf
+*.R     text eol=lf
+*.Rmd   text eol=lf
+Dockerfile text eol=lf
+*.yml   text eol=lf
+*.json  text eol=lf
+
+# FCS files are binary; never let git touch their contents.
+*.fcs   binary
+*.rds   binary
+*.tar.gz binary

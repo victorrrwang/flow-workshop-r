@@ -7,7 +7,15 @@ services:
     ports:
       - "127.0.0.1:8787:8787"
     environment:
-      PASSWORD: ${PASSWORD:-workshop}
+      # No login screen: RStudio opens straight into a session as user `rstudio`.
+      # Safe ONLY because the port below is bound to 127.0.0.1. If you ever expose this
+      # on 0.0.0.0, put PASSWORD back and drop DISABLE_AUTH -- an unauthenticated session
+      # on conference wifi is a shell on your laptop for anyone who finds the port.
+      DISABLE_AUTH: "true"
     volumes:
       - ./data:/home/rstudio/data:ro
       - ./workshop:/home/rstudio/workshop
+      # RStudio defaults. Also baked into the image, but mounting it means a layout change
+      # is a file edit plus a restart rather than a rebuild and a 5 GB re-pull.
+      # This file must exist, or Docker will create a directory here and RStudio will ignore it.
+      - ./docker/rstudio-prefs.json:/etc/rstudio/rstudio-prefs.json:ro

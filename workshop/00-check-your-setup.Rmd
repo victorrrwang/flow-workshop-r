@@ -1,0 +1,192 @@
+---
+title: "00 · Check your setup"
+output:
+  html_document:
+    toc: false
+---
+
+**Run this once, before the workshop.** It teaches nothing — it only proves your
+environment works, end to end: the packages load, your folders are connected, and a real
+FCS file can be opened and plotted. Better to find a broken laptop now than at half past
+eight on the morning.
+
+**To run it:** click **Knit** in the toolbar just above this text (`Ctrl+Shift+K` on
+Windows, `Cmd+Shift+K` on a Mac). A report opens in a new pane; the answer is its last line.
+
+If you would rather watch it happen step by step, use **Run ▸ Run All** instead
+(`Ctrl+Alt+R` / `Cmd+Option+R`) — the Run menu is at the top right of this editor pane, and
+the output appears underneath each block of code.
+
+Either way, look for a line starting `SETUP OK` and reply to the workshop email with it.
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+```
+
+## 1. R and Bioconductor versions
+
+```{r versions}
+cat("R version:      ", R.version.string, "\n", sep = "")
+cat("Platform:       ", R.version$platform, "\n", sep = "")
+cat("Bioconductor:   ", as.character(BiocManager::version()), "\n", sep = "")
+```
+
+## 2. Every package loads
+
+```{r packages}
+# The packages the workshop depends on. If any of these fail to load, the image is
+# either the wrong one or was not pulled completely.
+needed <- c("flowCore", "flowWorkspace", "openCyto", "ggcyto", "CytoML",
+            "flowAI", "PeacoQC",
+            "CATALYST", "FlowSOM", "uwot",
+            "speedyflowplot")
+
+missing <- character(0)
+
+for (this_package in needed) {
+
+  # require() tries to load a package and returns TRUE or FALSE instead of stopping.
+  # suppressPackageStartupMessages() hides the banner some packages print on load.
+  loaded <- suppressPackageStartupMessages(
+    require(this_package, character.only = TRUE, quietly = TRUE)
+  )
+
+  if (loaded) {
+    cat("ok      ", this_package, "\n", sep = "")
+  } else {
+    cat("MISSING ", this_package, "\n", sep = "")
+    missing <- c(missing, this_package)
+  }
+}
+```
+
+## 3. The folders are connected
+
+```{r folders}
+# These two paths are the folders from your own computer, appearing inside the container.
+data_dir     <- "/home/rstudio/data"
+workshop_dir <- "/home/rstudio/workshop"
+
+cat("data folder exists:     ", dir.exists(data_dir), "\n", sep = "")
+cat("workshop folder exists: ", dir.exists(workshop_dir), "\n", sep = "")
+
+# The workshop folder has to be writable, because that is where your work gets saved.
+test_file <- file.path(workshop_dir, ".write-test")
+
+write_worked <- tryCatch({
+  writeLines("test", test_file)
+  file.remove(test_file)
+  TRUE
+}, error = function(e) FALSE)
+
+cat("workshop folder writable:", write_worked, "\n")
+```
+
+```{r data-files}
+# There should be at least one FCS file -- the quality-control sample sent with the setup
+# bundle. The rest arrive on the day.
+fcs_found <- list.files(data_dir, pattern = "\\.fcs$", ignore.case = TRUE)
+
+cat("FCS files visible: ", length(fcs_found), "\n", sep = "")
+
+if (length(fcs_found) > 0) {
+  cat(paste("  ", fcs_found, collapse = "\n"), "\n")
+}
+```
+
+## 4. Read a file and draw a plot
+
+The real test: open the quality-control file and plot it. If this works, everything the
+workshop needs is working.
+
+```{r read-and-plot, fig.width = 5.5, fig.height = 5.5}
+# scales has to be attached for speedyflowplot's axis labels. Everything else was
+# already attached by the loop in section 2.
+library(scales)
+
+plot_worked <- FALSE
+
+if (length(fcs_found) > 0) {
+
+  # Open the first FCS file in the data folder.
+  #   transformation = FALSE      keep the raw recorded values
+  #   truncate_max_range = FALSE  keep events above the stated maximum instead of
+  #                               clamping them, which would alter the brightest cells
+  first_fcs <- file.path(data_dir, fcs_found[1])
+
+  ff <- read.FCS(first_fcs, transformation = FALSE, truncate_max_range = FALSE)
+
+  cat("File:      ", basename(first_fcs), "\n", sep = "")
+  cat("Events:    ", nrow(ff), "\n", sep = "")
+  cat("Parameters:", ncol(ff), "\n", sep = "")
+
+  # FSC-A is cell size, SSC-A is internal complexity. Every panel has them, and together
+  # they are the plot every cytometry analysis starts from.
+  channel_names <- colnames(ff)
+  have_scatter  <- ("FSC-A" %in% channel_names) && ("SSC-A" %in% channel_names)
+
+  if (have_scatter) {
+
+    # PlotFlowFrame() comes from speedyflowplot. It draws a density dot plot quickly,
+    # even with hundreds of thousands of events.
+    PlotFlowFrame(
+      ff,
+      channels     = c("FSC-A", "SSC-A"),
+      title        = "FSC-A vs SSC-A",
+      shownumbers  = TRUE,
+      plot.margins = c(3.5, 3.5, 2, 1)
+    )
+
+    plot_worked <- TRUE
+
+  } else {
+    cat("\nThis file has no FSC-A / SSC-A channels, so the plot was skipped.\n")
+    cat("That is unusual but not necessarily a problem.\n")
+    plot_worked <- TRUE
+  }
+}
+```
+
+You should see a cloud of dots. Cell size increases left to right, and granularity bottom
+to top — so lymphocytes sit low and left, and granulocytes up and to the right. You are not
+expected to interpret it yet; it only has to appear.
+
+## 5. Verdict
+
+```{r verdict}
+everything_ok <- (length(missing) == 0) && dir.exists(data_dir) &&
+                 write_worked && (length(fcs_found) > 0) && plot_worked
+
+if (everything_ok) {
+
+  # getRversion() and BiocManager::version() both return version OBJECTS, not text.
+  # cat() can only print plain values, so wrap each in as.character() first.
+  r_version    <- as.character(getRversion())
+  bioc_version <- as.character(BiocManager::version())
+
+  cat("SETUP OK  -  R", r_version,
+      "| Bioc", bioc_version,
+      "|", R.version$platform, "\n")
+
+} else {
+  cat("SETUP INCOMPLETE\n")
+  if (length(missing) > 0) {
+    cat("Packages that did not load:", paste(missing, collapse = ", "), "\n")
+  }
+  if (!dir.exists(data_dir)) {
+    cat("The data folder is not connected. Did you start with `docker compose up -d`\n")
+    cat("from inside the workshop folder?\n")
+  }
+  if (!write_worked) {
+    cat("The workshop folder is not writable.\n")
+  }
+  if (length(fcs_found) == 0) {
+    cat("No FCS file found. The setup bundle includes one -- check that the data folder\n")
+    cat("from the zip is sitting next to docker-compose.yml.\n")
+  }
+  if (!plot_worked) {
+    cat("The FCS file could not be read or plotted.\n")
+  }
+  cat("\nReply to the workshop email with this output and we will sort it out.\n")
+}
+```

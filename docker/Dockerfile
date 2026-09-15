@@ -9,5 +9,11 @@ RUN Rscript /opt/workshop/install.R && rm -rf /tmp/downloaded_packages
 
 COPY scripts/smoke-test.R /opt/workshop/smoke-test.R
 
+# System-wide RStudio defaults: same pane layout, font size and session behaviour for
+# everyone. Users can still change anything in Tools > Global Options; their changes go to
+# ~/.config/rstudio/ and override these. save_workspace/load_workspace are off on purpose,
+# so a broken session never restores itself on restart.
+COPY docker/rstudio-prefs.json /etc/rstudio/rstudio-prefs.json
+
 RUN mkdir -p /home/rstudio/data /home/rstudio/workshop \
     && chown -R rstudio:rstudio /home/rstudio

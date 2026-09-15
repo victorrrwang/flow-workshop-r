@@ -5,6 +5,14 @@ data/*
 SHA256SUMS
 workshop/*.html
 workshop/*_files/
+workshop/out/
+dist/
 .Rproj.user/
 .Rhistory
 .DS_Store
+
+# Lab notebooks stay out of git so the repository can be public (free ARM runners for
+# the image build) while the course materials are not. 00-check-your-setup.Rmd is the
+# exception: attendees get it in the setup bundle anyway.
+workshop/*.Rmd
+!workshop/00-check-your-setup.Rmd
