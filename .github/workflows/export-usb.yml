@@ -1,0 +1,133 @@
+# Export the published image as offline tarballs for the USB stick.
+#
+# WHY THIS RUNS IN CI RATHER THAN ON A LAPTOP
+#   `docker save` cannot reliably write an image for an architecture the host
+#   does not have. On an Apple Silicon Mac, `docker pull --platform linux/amd64`
+#   followed by `docker save` fails with
+#       unable to create manifests file: NotFound: content digest ... not found
+#   because the local store ends up holding the foreign manifest without every
+#   blob that save wants to write.
+#
+#   Here each tarball is written on a runner of its own architecture, so every
+#   pull is native and save has everything it needs. Same reason the build
+#   matrix uses native runners instead of emulation.
+#
+# HOW TO GET THE FILES
+#   Actions tab -> "Export offline images" -> Run workflow. When it finishes,
+#   the two tarballs are at the bottom of the run summary page under Artifacts.
+#   Download both, unzip, and copy them to the USB stick together with
+#   READ-ME-FIRST.txt from the same artifact.
+#
+#   Note that GitHub wraps each artifact in its own zip on download, so the
+#   file an attendee needs is one unzip in. Do that yourself before copying to
+#   the stick -- do not hand anyone a zip containing a tar.gz.
+
+name: Export offline images
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Image tag to export'
+        required: true
+        default: '2026.09'
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/flow-workshop-r
+
+jobs:
+  export:
+    name: Export ${{ matrix.label }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Filenames are named after what an attendee can tell about their own
+          # laptop ("do I have a Windows PC?") rather than after the CPU
+          # architecture ("is my chip arm64?"), which is what people get wrong.
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            label: FOR-WINDOWS-AND-INTEL-MAC
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            label: FOR-APPLE-SILICON-MAC
+
+    steps:
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
+
+      # No --platform flag: this runner IS the target architecture, so the
+      # default pull is the right variant and save has every blob locally.
+      - name: Pull the image
+        run: docker pull "${IMAGE}:${{ inputs.tag }}"
+
+      - name: Confirm the architecture before exporting
+        run: |
+          got="$(docker image inspect "${IMAGE}:${{ inputs.tag }}" \
+                   --format '{{.Os}}/{{.Architecture}}')"
+          echo "runner produced: $got (expected ${{ matrix.platform }})"
+          # A silent architecture mismatch is the one failure an attendee would
+          # not report -- the container would start and merely run very slowly.
+          # Fail loudly here instead.
+          [ "$got" = "${{ matrix.platform }}" ]
+
+      - name: Save and compress
+        run: |
+          docker save "${IMAGE}:${{ inputs.tag }}" \
+            | gzip -1 > "${{ matrix.label }}.tar.gz"
+          ls -lh "${{ matrix.label }}.tar.gz"
+          shasum -a 256 "${{ matrix.label }}.tar.gz" > "${{ matrix.label }}.sha256"
+
+      - name: Write the attendee instructions
+        run: |
+          cat > READ-ME-FIRST.txt <<EOF
+          FLOW CYTOMETRY WORKSHOP - offline image
+          =======================================
+
+          Copy ONE of these two files, whichever matches your laptop:
+
+            FOR-WINDOWS-AND-INTEL-MAC.tar.gz
+                Any Windows PC. Also a Mac from 2020 or earlier
+                (Apple menu > About This Mac says "Intel").
+
+            FOR-APPLE-SILICON-MAC.tar.gz
+                A Mac from 2020 or later
+                (Apple menu > About This Mac says "Apple M1" / "M2" / "M3" / "M4").
+
+          Then, with Docker Desktop running, open Terminal (Mac) or
+          PowerShell (Windows), cd to wherever you copied the file, and run:
+
+            docker load -i FOR-APPLE-SILICON-MAC.tar.gz       <- or the other name
+
+          That takes a few minutes and prints a line ending in
+          "${IMAGE}:${{ inputs.tag }}".
+
+          After that, follow SETUP.pdf from step 3 onwards. You can skip any
+          step that downloads the image - you already have it.
+
+          If you loaded the wrong file, nothing breaks: load the right one and
+          carry on. The wrong one would merely have run very slowly.
+          EOF
+          cat READ-ME-FIRST.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.label }}
+          path: |
+            ${{ matrix.label }}.tar.gz
+            ${{ matrix.label }}.sha256
+            READ-ME-FIRST.txt
+          if-no-files-found: error
+          # The tarball is already gzipped; asking the upload to compress it
+          # again costs several minutes and saves nothing.
+          compression-level: 0
+          retention-days: 14
