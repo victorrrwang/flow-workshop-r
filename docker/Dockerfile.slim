@@ -28,6 +28,10 @@ LABEL org.opencontainers.image.title="flow-workshop-r (slim)" \
 # delete when a package leaves the list.
 #   libxml2/curl/ssl  - CytoML, xml2, curl, httr; needed by most of the tidyverse too
 #   glpk/gmp          - igraph (Leiden lives in igraph::cluster_leiden)
+#   gsl               - flowPeaks. Its C code includes <gsl/gsl_math.h> and its configure
+#                       script calls gsl-config, so both the headers and the tool are
+#                       needed. This is the one library the Bioconductor base was quietly
+#                       providing for us.
 #   hdf5              - HDF5Array / rhdf5, pulled in through CATALYST's SCE stack
 #   png/jpeg/tiff     - raster output from ggcyto and ComplexHeatmap
 #   fontconfig .. fribidi - systemfonts/textshaping/ragg, the ggplot2 text stack
@@ -40,6 +44,7 @@ LABEL org.opencontainers.image.title="flow-workshop-r (slim)" \
 RUN apt-get update && apt-get install -y --no-install-recommends \
       libxml2-dev libcurl4-openssl-dev libssl-dev \
       libglpk-dev libgmp-dev \
+      libgsl-dev \
       libhdf5-dev \
       libpng-dev libjpeg-dev libtiff-dev \
       libfontconfig1-dev libfreetype6-dev libharfbuzz-dev libfribidi-dev \
