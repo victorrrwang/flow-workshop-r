@@ -39,6 +39,7 @@ cat("Bioconductor:   ", as.character(BiocManager::version()), "\n", sep = "")
 needed <- c("flowCore", "flowWorkspace", "openCyto", "ggcyto", "CytoML",
             "flowAI", "PeacoQC",
             "CATALYST", "FlowSOM", "uwot",
+            "flowPeaks", "bluster",
             "speedyflowplot")
 
 missing <- character(0)
@@ -172,6 +173,10 @@ if (everything_ok) {
   cat("SETUP INCOMPLETE\n")
   if (length(missing) > 0) {
     cat("Packages that did not load:", paste(missing, collapse = ", "), "\n")
+    cat("\nIf these are only flowPeaks and bluster, your copy of the image is out of\n")
+    cat("date. Run this in the same folder, then try again:\n")
+    cat("    docker compose pull\n")
+    cat("    docker compose up -d\n")
   }
   if (!dir.exists(data_dir)) {
     cat("The data folder is not connected. Did you start with `docker compose up -d`\n")

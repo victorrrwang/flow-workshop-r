@@ -1,11 +1,9 @@
 # Workshop setup
 
 **Do this before the workshop, at home.** Ten minutes, plus a download you should not leave
-until the last evening.
-
-Two things are involved: **the software** (about 5 GB — Docker fetches it) and **your
-folder** (about 10 MB — you download and unzip it). Docker does not know your folder exists
-until you start it from inside that folder.
+until the last evening. Two things are involved: **the software** (a 2 GB download that
+unpacks to about 13 GB — you need **20 GB free disk space**) and **your folder** (about
+10 MB). Docker does not know your folder exists until you start it from inside that folder.
 
 # Windows
 
@@ -28,16 +26,20 @@ You should end up with a folder at `C:\Users\<you>\flow-workshop\`.
 Open the `flow-workshop` folder in File Explorer → click the address bar → type
 `powershell` → Enter.
 
-### 4. Get the software (~5 GB) — pick one
+### 4. Get the software
 
-| You have | Run this |
-|---|---|
-| **Good internet** | Nothing. Step 5 will download it for you. |
-| **The USB stick** | `docker load -i D:\flow-workshop-r-2026.09-amd64.tar.gz` |
-| **Downloaded the file** | `docker load -i $HOME\Downloads\flow-workshop-r-2026.09-amd64.tar.gz` |
+**Good internet?** Skip this step — step 5 downloads it for you.
 
-*Snapdragon / ARM laptop? Use the `arm64` file instead. Check: Settings → System → About →
-System type.*
+**From the USB stick:** your file is **`FOR-WINDOWS-AND-INTEL-MAC.tar.gz`** (on a
+Snapdragon / ARM laptop, take `FOR-APPLE-SILICON-MAC.tar.gz` instead — same chip family).
+
+Type `docker load -i ` — with a space after the `i` — then **drag the file from File
+Explorer onto the PowerShell window**, which fills in the path for you. Press Enter. Do not
+type the path by hand.
+
+A few minutes pass with no progress bar, then it prints
+`Loaded image: ghcr.io/victorrrwang/flow-workshop-r:2026.09`. To be sure, check Docker
+Desktop → **Images** — see the last page.
 
 ### 5. Start the container
 
@@ -45,8 +47,8 @@ System type.*
 docker compose up -d
 ```
 
-**The first time takes a while** — 5 GB to download or unpack. When the prompt comes back
-it is running; later starts take seconds.
+**The first time takes a while.** When the prompt comes back it is running; later starts
+take seconds.
 
 ### 6. Check it works
 
@@ -89,16 +91,21 @@ Drag the resulting **`flow-workshop`** folder into your home folder, so you end 
 Open **Terminal** (`Cmd+Space`, type `terminal`, Enter). Type `cd ` — with a space after it
 — then drag the `flow-workshop` folder from Finder onto the Terminal window and press Enter.
 
-### 4. Get the software (~5 GB) — pick one
+### 4. Get the software
 
-| You have | Run this |
-|---|---|
-| **Good internet** | Nothing. Step 5 will download it for you. |
-| **The USB stick** | `docker load -i /Volumes/<stick>/flow-workshop-r-2026.09-arm64.tar.gz` |
-| **Downloaded the file** | `docker load -i ~/Downloads/flow-workshop-r-2026.09-arm64.tar.gz` |
+**Good internet?** Skip this step — step 5 downloads it for you.
 
-*Apple Silicon (M1/M2/M3/M4) uses the `arm64` file; an older Intel Mac uses `amd64`.
-Check: Apple menu → About This Mac — "Chip: Apple …" means Apple Silicon.*
+**From the USB stick:** which file depends on your Mac. Apple menu → **About This Mac** —
+"Chip: Apple M1/M2/M3/M4" takes **`FOR-APPLE-SILICON-MAC.tar.gz`**, "Processor: Intel"
+takes **`FOR-WINDOWS-AND-INTEL-MAC.tar.gz`**.
+
+Type `docker load -i ` — with a space after the `i` — then **drag the file from Finder onto
+the Terminal window**, which fills in the path for you. Press Enter. Do not type the path
+by hand.
+
+A few minutes pass with no progress bar, then it prints
+`Loaded image: ghcr.io/victorrrwang/flow-workshop-r:2026.09`. To be sure, check Docker
+Desktop → **Images** — see the last page.
 
 ### 5. Start the container
 
@@ -106,22 +113,39 @@ Check: Apple menu → About This Mac — "Chip: Apple …" means Apple Silicon.*
 docker compose up -d
 ```
 
-**The first time takes a while** — 5 GB to download or unpack. When the prompt comes back
-it is running; later starts take seconds.
+**The first time takes a while.** When the prompt comes back it is running; later starts
+take seconds.
 
 ### 6. Check it works
 
-Open **http://localhost:8787** — no password needed.
-
-In the **Files** pane (bottom right): `workshop` → `00-check-your-setup.Rmd`.
-
-Run it: click **Knit** above the file (`Cmd+Shift+K`), or **Run ▸ Run All**
-(`Cmd+Option+R`). Look for a line starting `SETUP OK` and **reply to the workshop email
-with it.** If it says anything else, send the whole output.
+As Windows step 6 — open **http://localhost:8787**, run `workshop/00-check-your-setup.Rmd`
+from the **Files** pane — but the shortcuts are `Cmd+Shift+K` (Knit) and `Cmd+Option+R`
+(Run All). **Reply to the workshop email with the `SETUP OK` line**, or the whole output if
+it says anything else.
 
 ### 7. Stop it
 
 `docker compose down` — your files stay. `docker compose up -d` starts it again anytime.
+
+\newpage
+
+# Did step 4 work?
+
+Open Docker Desktop and click **Images** in the left sidebar. You are looking for one row
+named `ghcr.io/victorrrwang/flow-workshop-r`, tag `2026.09`, about 12 GB:
+
+![](docs/docker-images-check.png){width=100%}
+
+If that row is there, the software is on your machine and you can go to step 5 — whatever
+scrolled past in the terminal.
+
+If the list is **empty**, the `docker load` did not finish. The usual reasons:
+
+- **Not enough disk space.** The file unpacks to about 13 GB. Free up space and run it again.
+- **The path was typed by hand.** Drag the file onto the terminal window instead.
+- **Docker Desktop was not running.** Start it, wait for the whale icon to settle, retry.
+
+Running it again is safe — it does not damage anything and does not use double the space.
 
 ---
 

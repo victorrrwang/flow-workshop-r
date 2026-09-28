@@ -38,8 +38,8 @@ STAGE="${WORK}/${NAME}"
 # Named one by one, deliberately. Do NOT change this to a glob like data/*.fcs -- the
 # moment a patient case lands in data/, a glob would ship it and nobody would notice.
 ALLOW=(
-  "SETUP.md"
   "SETUP.pdf"
+  "SETUP-zh.pdf"
   "docker-compose.yml"
   "docker/rstudio-prefs.json"
   "workshop/00-check-your-setup.Rmd"
@@ -48,19 +48,45 @@ ALLOW=(
 
 mkdir -p "${STAGE}"
 
-# Keep SETUP.pdf in step with SETUP.md. pandoc ships inside RStudio rather than on the
-# PATH, so this is best-effort: regenerate when we can, otherwise ship the committed PDF.
+# Keep the PDFs in step with their .md sources. pandoc ships inside RStudio rather than
+# on the PATH, so this is best-effort: regenerate when we can, otherwise ship the
+# committed PDFs.
+#
+# -f markdown-implicit_figures keeps the Docker Desktop screenshot inline instead of
+# turning it into a LaTeX float, which LaTeX would happily defer to its own page.
 if command -v pandoc >/dev/null 2>&1; then
   echo "Regenerating SETUP.pdf from SETUP.md ..."
-  pandoc SETUP.md -o SETUP.pdf \
+  pandoc SETUP.md -f markdown-implicit_figures -o SETUP.pdf \
     --pdf-engine=xelatex \
     -V geometry:margin=1.6cm \
     -V fontsize=9pt \
     -V colorlinks=true -V linkcolor=black -V urlcolor=blue \
     -V mainfont="DejaVu Sans" -V monofont="DejaVu Sans Mono" \
     || echo "WARNING: pandoc failed; shipping the existing SETUP.pdf" >&2
+
+  # The Chinese build needs a CJK font, and line breaking between Han characters, which
+  # LaTeX does not do by default. The usual route is the xeCJK package, but that pulls in
+  # ctexhook.sty from the ctex bundle, which is not part of a basic TeX Live install.
+  # These two XeTeX primitives give the same line breaking with no extra packages.
+  echo "Regenerating SETUP-zh.pdf from SETUP-zh.md ..."
+  # Portable: BSD mktemp -t takes a prefix, GNU mktemp -t needs XXXXXX.
+  # Plain mktemp behaves the same on both, and -H does not care about the extension.
+  ZH_HEADER="$(mktemp)"
+  cat > "${ZH_HEADER}" <<'TEX'
+\XeTeXlinebreaklocale "zh"
+\XeTeXlinebreakskip = 0pt plus 1pt minus 0.1pt
+TEX
+  pandoc SETUP-zh.md -f markdown-implicit_figures -o SETUP-zh.pdf \
+    --pdf-engine=xelatex \
+    -H "${ZH_HEADER}" \
+    -V geometry:margin=1.6cm \
+    -V fontsize=10pt \
+    -V colorlinks=true -V linkcolor=black -V urlcolor=blue \
+    -V mainfont="Noto Sans CJK SC" -V monofont="Noto Sans Mono CJK SC" \
+    || echo "WARNING: pandoc failed; shipping the existing SETUP-zh.pdf" >&2
+  rm -f "${ZH_HEADER}"
 else
-  echo "NOTE: pandoc not found; shipping the existing SETUP.pdf unchanged."
+  echo "NOTE: pandoc not found; shipping the existing PDFs unchanged."
 fi
 
 for f in "${ALLOW[@]}"; do
@@ -101,14 +127,11 @@ if ls "${STAGE}/workshop/"*.Rmd 2>/dev/null | grep -v '00-check-your-setup.Rmd' 
   exit 1
 fi
 
-# The bundle gets the attendee half of the README only -- the instructor sections would
-# just confuse people and reference scripts they do not have. Extracted rather than
-# duplicated, so there is one source of truth.
-awk '/^## For attendees/{p=1} /^## For the instructor/{p=0} p' README.md \
-  > "${STAGE}/README.md"
-
-if [ ! -s "${STAGE}/README.md" ]; then
-  echo "ERROR: could not extract the attendee section from README.md" >&2
+# Attendees get the PDF, not markdown. A stray .md means someone added one to the
+# allowlist without thinking about who reads it.
+if find "${STAGE}" -name '*.md' | grep -q .; then
+  echo "ERROR: markdown files found in the bundle. Attendees get SETUP.pdf only." >&2
+  find "${STAGE}" -name '*.md' >&2
   exit 1
 fi
 

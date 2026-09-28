@@ -1,0 +1,101 @@
+# EXPERIMENT: build docker/Dockerfile.slim and report what it costs.
+#
+# Publishes to its own tag (default 2026.09-slim) and never touches :2026.09 or :latest,
+# so the image attendees pull is unaffected no matter how this goes.
+#
+# Run it from the Actions tab. When it finishes, the run summary shows the size of each
+# architecture next to the current image, and the smoke test result. Only if both look
+# right is it worth pointing docker-compose.yml at the new build.
+
+name: Build slim image (experiment)
+
+on:
+  workflow_dispatch:
+    inputs:
+      base:
+        description: 'Base image (check the tag exists on Docker Hub first)'
+        required: true
+        default: 'rocker/rstudio:4.6.1'
+      tag:
+        description: 'Tag to publish as'
+        required: true
+        default: '2026.09-slim'
+      compare_with:
+        description: 'Existing tag to compare size against'
+        required: true
+        default: '2026.09'
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/flow-workshop-r
+
+jobs:
+  build:
+    name: ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    # Bioconductor packages build from source on this base, so it is much slower than the
+    # Bioconductor-base build. Give it room rather than losing an hour's work to a timeout.
+    timeout-minutes: 360
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            suffix: amd64
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            suffix: arm64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
+
+      # Load into the local daemon rather than pushing, so this job can measure and test
+      # the image before anything reaches the registry.
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile.slim
+          platforms: ${{ matrix.platform }}
+          build-args: BASE=${{ inputs.base }}
+          tags: ${{ env.IMAGE }}:${{ inputs.tag }}-${{ matrix.suffix }}
+          load: true
+          push: false
+
+      - name: Smoke test
+        run: |
+          docker run --rm "${IMAGE}:${{ inputs.tag }}-${{ matrix.suffix }}" \
+            Rscript /opt/workshop/smoke-test.R
+
+      - name: Compare sizes
+        run: |
+          docker pull "${IMAGE}:${{ inputs.compare_with }}"
+          old=$(docker image inspect "${IMAGE}:${{ inputs.compare_with }}" --format '{{.Size}}')
+          new=$(docker image inspect "${IMAGE}:${{ inputs.tag }}-${{ matrix.suffix }}" --format '{{.Size}}')
+          {
+            echo "### ${{ matrix.platform }}"
+            echo ""
+            echo "| Image | On-disk size |"
+            echo "|---|---|"
+            printf '| `%s` (current) | %s |\n' "${{ inputs.compare_with }}" "$(numfmt --to=iec $old)"
+            printf '| `%s` (slim) | %s |\n' "${{ inputs.tag }}" "$(numfmt --to=iec $new)"
+            printf '| **saved** | **%s** |\n' "$(numfmt --to=iec $((old - new)))"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Only now, with the smoke test green, does anything reach the registry. The
+      # architecture suffix stays in the tag: this is an experiment, not the multi-arch
+      # tag attendees pull, and keeping them separate makes that obvious.
+      - name: Push
+        run: docker push "${IMAGE}:${{ inputs.tag }}-${{ matrix.suffix }}"

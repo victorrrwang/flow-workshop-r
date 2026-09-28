@@ -1,0 +1,74 @@
+# EXPERIMENT: the same workshop environment on a minimal base.
+#
+# docker/Dockerfile uses bioconductor/bioconductor_docker, which carries every -dev
+# library any of ~2,300 Bioconductor packages might need to compile. That is about 4-5 GB
+# before a single workshop package is installed, and the finished image is ~12.4 GB.
+#
+# This one starts from rocker/rstudio and installs only the system libraries THIS package
+# list actually needs. Same docker/install.R, so the package list has one source of truth.
+#
+# Build it to its own tag (2026.09-slim) and compare before trusting it:
+#   docker images | grep flow-workshop-r
+#   docker run --rm ghcr.io/victorrrwang/flow-workshop-r:2026.09-slim \
+#     Rscript /opt/workshop/smoke-test.R
+#
+# KNOWN RISK: rocker serves precompiled CRAN binaries, but Bioconductor packages still
+# build from source here, so the first build is slow (expect over an hour on CI). If a
+# package fails, the error names the missing -dev library; add it to APT_PACKAGES below
+# rather than reaching back for the Bioconductor base.
+
+ARG BASE=rocker/rstudio:4.6.1
+FROM ${BASE}
+
+LABEL org.opencontainers.image.title="flow-workshop-r (slim)" \
+      org.opencontainers.image.description="Minimal-base build of the flow cytometry workshop environment" \
+      org.opencontainers.image.source="https://github.com/victorrrwang/flow-workshop-r"
+
+# System libraries, grouped by what needs them, so a future reader can tell which line to
+# delete when a package leaves the list.
+#   libxml2/curl/ssl  - CytoML, xml2, curl, httr; needed by most of the tidyverse too
+#   glpk/gmp          - igraph (Leiden lives in igraph::cluster_leiden)
+#   hdf5              - HDF5Array / rhdf5, pulled in through CATALYST's SCE stack
+#   png/jpeg/tiff     - raster output from ggcyto and ComplexHeatmap
+#   fontconfig .. fribidi - systemfonts/textshaping/ragg, the ggplot2 text stack
+#   cairo             - Cairo devices; ComplexHeatmap renders better with it present
+#   zlib/bz2/lzma     - compressed FCS and general Bioc I/O
+#   cmake, git        - source builds (nloptr and friends) and remotes::install_github
+#   pandoc            - rmarkdown::render from Rscript, which is how smoke-test.R knits.
+#                       RStudio bundles its own pandoc, but that is not on PATH for a
+#                       plain Rscript run, so install the system one.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      libxml2-dev libcurl4-openssl-dev libssl-dev \
+      libglpk-dev libgmp-dev \
+      libhdf5-dev \
+      libpng-dev libjpeg-dev libtiff-dev \
+      libfontconfig1-dev libfreetype6-dev libharfbuzz-dev libfribidi-dev \
+      libcairo2-dev \
+      zlib1g-dev libbz2-dev liblzma-dev \
+      cmake git pandoc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Bioconductor release must match the package list. Pin it: BiocManager otherwise picks a
+# release from the R version, and a mismatch shows up as confusing "package not available".
+ENV BIOC_VERSION=3.23
+RUN Rscript -e 'install.packages("BiocManager", repos = "https://cloud.r-project.org")' \
+    && Rscript -e 'BiocManager::install(version = Sys.getenv("BIOC_VERSION"), ask = FALSE)'
+
+COPY docker/install.R /opt/workshop/install.R
+RUN Rscript /opt/workshop/install.R && rm -rf /tmp/downloaded_packages
+
+# Packages built from source keep their debug symbols, which nothing here ever reads.
+# Stripping them is behaviour-neutral and usually worth 1-3 GB.
+RUN find /usr/local/lib/R/site-library /usr/local/lib/R/library \
+      -name '*.so' -exec strip --strip-debug {} + 2>/dev/null || true
+
+COPY scripts/smoke-test.R /opt/workshop/smoke-test.R
+
+# System-wide RStudio defaults: same pane layout, font size and session behaviour for
+# everyone. Users can still change anything in Tools > Global Options; their changes go to
+# ~/.config/rstudio/ and override these. save_workspace/load_workspace are off on purpose,
+# so a broken session never restores itself on restart.
+COPY docker/rstudio-prefs.json /etc/rstudio/rstudio-prefs.json
+
+RUN mkdir -p /home/rstudio/data /home/rstudio/workshop \
+    && chown -R rstudio:rstudio /home/rstudio
